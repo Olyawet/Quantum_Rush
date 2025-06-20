@@ -28,7 +28,8 @@ let timeSlowCost = 0.25;
 let lastFrame = 0;
 let obstacles = [];
 let energyCells = [];
-let particle = { x: width/4, y: height/2, r: 18, vy: 0 };
+let particle = { x: width/4, y: height/2, r: 18 };
+let targetY = height / 2;
 let progress = 0;
 let rank = 'Новичок';
 let nextRankScore = 100;
@@ -41,46 +42,50 @@ let ranks = [
 ];
 let timeSinceSpeedUp = 0;
 
-// Управление (стрелки/мышь/тач)
-let moveUp = false;
-let moveDown = false;
-window.addEventListener('keydown', e => {
-    if (e.code === 'Space') timeSlow = true;
-    if (e.code === 'ArrowUp') moveUp = true;
-    if (e.code === 'ArrowDown') moveDown = true;
-});
-window.addEventListener('keyup', e => {
-    if (e.code === 'Space') timeSlow = false;
-    if (e.code === 'ArrowUp') moveUp = false;
-    if (e.code === 'ArrowDown') moveDown = false;
-});
+// --- НОВОЕ УПРАВЛЕНИЕ ---
+
+// Замедление времени через пробел (остается для ПК)
+window.addEventListener('keydown', e => { if (e.code === 'Space') timeSlow = true; });
+window.addEventListener('keyup', e => { if (e.code === 'Space') timeSlow = false; });
+
+// Управление для ПК: частица следует за курсором при зажатой ЛКМ
+let isMouseDown = false;
 canvas.addEventListener('mousedown', e => {
-    timeSlow = true;
-    if (e.offsetY < particle.y) moveUp = true;
-    if (e.offsetY > particle.y) moveDown = true;
+    if (e.button === 0) { // Только левая кнопка мыши
+        isMouseDown = true;
+        timeSlow = true;
+        targetY = e.offsetY;
+    }
 });
-canvas.addEventListener('mouseup', () => {
+canvas.addEventListener('mousemove', e => {
+    if (isMouseDown) {
+        targetY = e.offsetY;
+    }
+});
+canvas.addEventListener('mouseup', e => {
+    if (e.button === 0) {
+        isMouseDown = false;
+        timeSlow = false;
+    }
+});
+canvas.addEventListener('mouseleave', () => { // Если мышь ушла за пределы canvas
+    isMouseDown = false;
     timeSlow = false;
-    moveUp = false;
-    moveDown = false;
 });
+
+// Управление для мобильных: частица следует за пальцем
 canvas.addEventListener('touchstart', e => {
     e.preventDefault();
     timeSlow = true;
-    let y = e.touches[0].clientY;
-    if (y < particle.y) moveUp = true;
-    else moveDown = true;
+    targetY = e.touches[0].clientY;
 });
 canvas.addEventListener('touchmove', e => {
     e.preventDefault();
-    let y = e.touches[0].clientY;
-    moveUp = (y < particle.y);
-    moveDown = (y > particle.y);
+    targetY = e.touches[0].clientY;
 });
-canvas.addEventListener('touchend', () => {
+canvas.addEventListener('touchend', e => {
+    e.preventDefault();
     timeSlow = false;
-    moveUp = false;
-    moveDown = false;
 });
 
 // Кнопка реванша
@@ -140,7 +145,7 @@ function startGame() {
     energyCells = [];
     particle.x = width/4;
     particle.y = height/2;
-    particle.vy = 0;
+    targetY = height / 2;
     progress = 0;
     rank = 'Новичок';
     nextRankScore = 100;
@@ -151,11 +156,10 @@ function startGame() {
 }
 
 function update(dt) {
-    // Управление частицей
-    if (moveUp) particle.vy = -320 * dt;
-    else if (moveDown) particle.vy = 320 * dt;
-    else particle.vy = 0;
-    particle.y += particle.vy * (timeSlow ? 0.5 : 1);
+    // Плавное движение частицы к целевой Y-координате
+    // Чем больше множитель (здесь 0.2), тем резче и быстрее движение
+    particle.y += (targetY - particle.y) * 0.2;
+
     // Ускорение каждые 15 секунд
     timeSinceSpeedUp += dt;
     if (timeSinceSpeedUp >= 15 && speed < maxSpeed) {
@@ -309,4 +313,4 @@ if (!document.getElementById('particles-bg')) {
 loadDailyChallenge();
 
 // Автостарт
-startGame(); 
+startGame();  
